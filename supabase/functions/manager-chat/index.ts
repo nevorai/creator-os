@@ -4,9 +4,10 @@
 // propose_employee_change, which is recorded as a PENDING proposal, never
 // applied automatically. Applying/rejecting happens from the Manager screen
 // as a plain table write against `employees` -- no separate edge function,
-// since the existing RLS already allows an authenticated write.
+// since the owner-only RLS (migration 0012) already allows his write.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeadersFor, json } from "../_shared/cors.ts";
+import { ownerOnly } from "../_shared/owner.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -48,6 +49,9 @@ Deno.serve(async (req) => {
   if (authError || !userData?.user) {
     return json(req, { error: "Not signed in." }, 401);
   }
+  // Signed in is not enough in the shared Nevorai OS project: only a Creator OS owner gets past here.
+  const notOwner = await ownerOnly(req);
+  if (notOwner) return notOwner;
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { db: { schema: "creator_os" } });
 

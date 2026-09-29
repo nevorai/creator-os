@@ -1,11 +1,15 @@
 // Nightly RSS pull. Reads active rows from `sources`, fetches each feed,
 // upserts new items into `news_stories`. No AI scoring here — that needs
 // Anthropic/Gemini keys, which are a later step (see STATUS.md).
+// Only the pg_cron job (service role key) or a signed-in owner may run it,
+// see _shared/owner.ts.
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { scheduleOrOwner } from "../_shared/owner.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  { db: { schema: "creator_os" } },
 );
 
 function parseFeedItems(xml: string) {
@@ -33,7 +37,10 @@ function parseFeedItems(xml: string) {
   return items;
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  const denied = await scheduleOrOwner(req);
+  if (denied) return denied;
+
   const { data: sources, error: sourcesError } = await supabase
     .from("sources")
     .select("id, url")

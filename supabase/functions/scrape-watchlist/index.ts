@@ -10,9 +10,11 @@
 // 5k-median account and a 500k-median account don't share a bar. This is
 // the exact rule already promised in the Watchlist screen's copy.
 //
-// Meant to run on a schedule (see migration 0009) with the service role key,
-// not from the browser — no user-JWT check, matching fetch-rss.
+// Meant to run on a schedule (see migration 0009) with the service role key.
+// Only that key or a signed-in owner may start it (every run spends Apify
+// credits), see _shared/owner.ts.
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { scheduleOrOwner } from "../_shared/owner.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
@@ -42,7 +44,10 @@ function median(nums: number[]): number | null {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  const denied = await scheduleOrOwner(req);
+  if (denied) return denied;
+
   if (!APIFY_TOKEN) {
     return new Response(
       JSON.stringify({ error: "APIFY_API_TOKEN is not set. Add it as an Edge Function secret." }),

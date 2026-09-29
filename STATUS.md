@@ -1,19 +1,46 @@
 # STATUS — the resume point
 
-_Last updated: 2026-09-22_
+_Last updated: 2026-09-29_
 
-## Where we are
+## Owner-only lockdown -- 2026-09-29 (found by the Academy OS move chat)
 
-Phase 1 scaffold is built and running. App shell (React + Vite + TS + Tailwind), Supabase project
-live (`Creator OS`, ap-south-1, project ref `ljfiqwuidwilfoxqvtqx`), schema applied. Screens wired
-to real data: **Library** (also the Voice Training intake — paste a transcript + metrics, it saves
-to the `reels` table), **Watchlist**, **Sources**, **Brand Brain**, **Settings**. Verified working
-end-to-end in the browser (add/read confirmed against the live database).
+Every creator_os policy was `to authenticated using (true)`, so any login in Nevorai OS could read
+or change everything, including the AI keys in `app_settings`; four AI functions only checked
+getUser(), and scrape-watchlist checked nothing (anyone with the anon key could start Apify scrapes).
+Fixed in code, tested locally (real migrations 0004-0012 on a local Postgres with Supabase-style roles;
+owner.ts against a mock API, 12/12 cases):
+- `0012_owner_only_access.sql`: `creator_os.owners` + `creator_os.is_owner()`, all 14 policies
+  owner-only. Refuses to run if the owner account is missing. Safe to run twice.
+- `ownerOnly` in studio-generate, generate-ideas, ingest-instagram, manager-chat; `scheduleOrOwner`
+  in scrape-watchlist and fetch-rss. fetch-rss also now targets the `creator_os` schema (it read
+  `public.sources` before). fetch-rss is still NOT deployed; its 02:00 IST cron gets 404.
+- Order: run 0012 in the Nevorai OS SQL Editor, THEN deploy the five functions (deploying first
+  would 403 everything, since is_owner() would not exist yet). Then run `supabase/checks/0012_check.sql`.
+- Status: code done; SQL run / deploy / check are Adarsh's steps (update this line when confirmed).
 
-Not built yet: Today, Ideas, Studio, Board, Formats, Performance, Employees — each shows a "later"
-placeholder naming which phase it belongs to.
 
-**Not yet on GitHub** — waiting on a private repo to be created, see bottom of this file.
+## Where we are (verified live 2026-09-26 -- this block wins over anything older below)
+
+Every screen except Performance is built and live at **creator.nevorai.com** (Library, Watchlist,
+Sources, Brand Brain, Settings, Studio, Formats, Today, Employees, Ideas, Board, Manager), in the
+dark redesign. Code is on GitHub (`adarsh21ch/creator-os`); `main` matched `origin/main` at
+31697ef (2026-09-22) with no local changes.
+
+Checked 2026-09-26, read-only, with the live site's public anon key:
+- **Public sign-up is OFF** (`/auth/v1/settings` gives `disable_signup: true`). The 2026-09-22
+  audit's last open item is closed.
+- **Migrations 0010 and 0011 have been run**: `ideas`, `employees`, `manager_messages`,
+  `manager_proposals` all exist. Ignore the "Not run yet: 0011" note in the Manager section.
+- anon gets `permission denied for schema creator_os` -- correct.
+- The claude.ai Supabase connector gets "permission denied" on Nevorai Tools, so row counts and
+  cron-run history were NOT checked. Use the dashboard or the CLI for those.
+
+**Open risk:** every policy is `for all to authenticated using (true)`, and Nevorai Tools is shared
+with AdsPro ("Lead Sync Pro") and the crm.nevorai.com CRM. Any user who can log in to that project
+can read and write all Creator OS data -- including the Anthropic/Gemini keys stored in
+`app_settings` (migration 0005). Safe only while Adarsh is the only auth user there. Sign-up
+is project-wide, so re-enabling it for AdsPro would expose this data. Fix: scope every policy to
+Adarsh's `auth.uid()` (also step one of multi-tenant).
 
 ## Settled decisions
 
@@ -227,6 +254,8 @@ the function, confirming the CORS fix built correctly.
 
 ## Only one item left from this audit, and it needs Adarsh directly
 
+**CLOSED -- verified 2026-09-26: `disable_signup` is true.**
+
 **Disable public sign-up** — Nevorai Tools Supabase project → Authentication → Sign In /
 Providers → Email → turn off "Allow new users to sign up." Cannot be done via SQL, CLI, or
 anything scriptable found so far; it's a dashboard-only toggle. This is the highest-priority
@@ -422,7 +451,7 @@ explicitly over "Manager edits directly" and "just a feedback log."
   `employees` row (same RLS already in place); Reject just marks the proposal dismissed.
 - Deployed and confirmed via `bun run build` + `bun run lint` (zero errors).
 
-**Not run yet:** `0011_manager_chat.sql`. Until then the Manager screen loads but has no
+**RUN -- verified 2026-09-26 (tables exist).** Original note: not run yet: `0011_manager_chat.sql`. Until then the Manager screen loads but has no
 conversation history table to write to.
 
 ## Full UI/UX redesign -- BUILT 2026-09-22
@@ -457,20 +486,16 @@ theme with a real design system.
    deals later; the Brand Brain needs a register setting and he has to choose where it sits.
 4. **API keys created** (console.anthropic.com and aistudio.google.com).
 
-## Not blocked — done
+## Next build candidates (as of 2026-09-26)
 
-Phase 1 scaffolding is done (see "Where we are" above).
+In the order recorded 2026-09-23: I-01 News Desk AI scoring (only raw RSS ingestion exists), I-03
+Trend Scout, **C-04 Packaging Writer (cheapest, recommended next)**, P-01 Production Coordinator,
+P-02 Publishing Scheduler, the A-01/A-02/A-03 Performance loop (blocked on Instagram Graph API
+OAuth setup), and M-00's automatic 06:00 daily brief (Manager is chat-only so far).
 
-**Next concrete action — pick one:**
-1. **Auth + RLS** (unblocks deploying). Supabase Auth, a login screen, apply migration 0003.
-   Nothing can go live until this is done.
-2. **Studio screen** (the first screen that gives him daily value) — Hook Writer + Scriptwriter
-   reading the seeded Brand Brain. Needs an Anthropic or Gemini key in `.env`; none is set yet.
-3. **Keep loading the archive** — his job, not a build task. 25-30 reels is the target for a real
-   voice profile; 7 are in.
-
-`gh` CLI is not installed on this machine, so the GitHub push needs him to create the private repo
-manually at github.com/new (named `creator-os`, no README) and then `git remote add` + push.
+Sequencing locked 2026-09-23: prove it on his own account first (metrics flowing, one Format
+promoted past hunch, a few weeks of real posting), THEN multi-tenant, THEN selling. That bar is
+mostly his data (items 1-2 above, and 25-30 reels loaded), not more screens.
 
 ## Build phases
 

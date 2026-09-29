@@ -5,8 +5,8 @@
 ## What this is
 
 Creator OS is Adarsh Chaturvedi's personal AI social media team — a web app that runs a
-13-employee "AI newsroom" for his Instagram content. Design finished 2026-09-16. **No code
-written yet.** This repo currently holds design, decisions, and his source material.
+13-employee "AI newsroom" for his Instagram content. Design finished 2026-09-16. Every screen except Performance has been built
+and live since 2026-09-22. STATUS.md's top block is the verified current state.
 
 Target domain: **creator.nevorai.com**
 
@@ -91,11 +91,17 @@ Influencer Watch desk rather than writing it twice.
 - Edit this repo directly in Claude Code (the Lovable-prompt rule does NOT apply to this project).
 - Do not push to GitHub without asking — this repo contains his political content and strategy.
 
-## Known security issue
+## Security -- read before touching auth or RLS
 
-RLS + the schema move are both handled by `supabase/migrations/0004_bootstrap_in_nevorai_tools.sql`,
-written but as of this writing **not yet run** — see STATUS.md "MOVED" section for the exact
-3-step sequence (run SQL → expose schema → create user). **Do not deploy before all 3 are done.**
+Creator OS lives in the shared **Nevorai OS** project (`wxgfaaaboftzsazknbvl`, renamed from Nevorai
+Tools), where other apps' people log in too (AdsPro and Meta review accounts, Academy OS students and
+coaches). So "signed in" means nothing here. Since migration **0012** (2026-09-29):
+- Only accounts in `creator_os.owners` (Adarsh, teamnevorai `32dc9eb8-4c68-47c0-8440-cdbcea9ca35c`)
+  can touch any row. Every table has ONE policy, `<table>_owner_all`, using `(select creator_os.is_owner())`.
+- Any new table needs the same policy (copy the loop in 0012). Never add a `using (true)` policy.
+- Edge functions: browser ones call `ownerOnly(req)` right after `getUser()`; scheduled ones start with
+  `scheduleOrOwner(req)` (service_role key or an owner). Both live in `supabase/functions/_shared/owner.ts`.
+- Check any change with `supabase/checks/0012_check.sql` (every row must say OK).
 
 ## Where to start
 
