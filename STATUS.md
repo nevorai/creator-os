@@ -23,7 +23,7 @@ owner.ts against a mock API, 12/12 cases):
 
 Every screen except Performance is built and live at **creator.nevorai.com** (Library, Watchlist,
 Sources, Brand Brain, Settings, Studio, Formats, Today, Employees, Ideas, Board, Manager), in the
-dark redesign. Code is on GitHub (`adarsh21ch/creator-os`); `main` matched `origin/main` at
+dark redesign. Code is on GitHub (`nevorai/creator-os`); `main` matched `origin/main` at
 31697ef (2026-09-22) with no local changes.
 
 Checked 2026-09-26, read-only, with the live site's public anon key:
@@ -234,7 +234,7 @@ the function, confirming the CORS fix built correctly.
 3. **Fixed: added a 404 route** (`src/pages/NotFound.tsx`) — the app had no catch-all before.
 4. **Confirmed clean: no secrets ever committed to git** (`.env` was never tracked), repo builds
    from a clean clone, and the 14 commits sitting only-local got pushed to GitHub
-   (`github.com/adarsh21ch/creator-os`) for the first time this session — they existed only on
+   (`github.com/nevorai/creator-os`) for the first time this session — they existed only on
    this laptop until now.
 5. **Not verified: Vercel environment variables.** The app clearly works in production (login and
    pages render), which is decent evidence they're set correctly — but this was not independently
