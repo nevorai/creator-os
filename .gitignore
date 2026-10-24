@@ -27,3 +27,7 @@ dist-ssr
 supabase/.temp/
 .vercel
 .env*
+
+# research raw data (regenerate with the replica-entrepreneur skill)
+replica/reviews.csv
+replica/by-app/*.csv

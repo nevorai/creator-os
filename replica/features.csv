@@ -1,0 +1,35 @@
+feature,area,priority,original,clone,notes,nevorai_has,evidence
+Niche watchlist with per-account outlier rule,research,must,none sells it,yes,3x own 30-day median,yes,supabase/functions/scrape-watchlist
+Nightly news pull from chosen sources,research,must,Feedly;Inoreader,yes,raw RSS only; AI scoring (I-01) not built,partial,supabase/functions/fetch-rss
+Trend scout (format used by 3+ watched accounts in 7 days),research,should,Exploding Topics (search only),no,I-03 planned,no,docs/01-architecture.md
+Deep research with live web search before writing,research,must,none,yes,anti-fabrication rule,yes,supabase/functions/studio-generate
+Brand voice from the creator's own transcripts,writing,must,Jasper (typed voices),yes,chat trainer written 2026-10-24 untested,partial,supabase/functions/brand-trainer
+Hooks + 60-90s script in the creator's voice (Hinglish),writing,must,none in Hinglish,yes,,yes,src/pages/Studio.tsx
+Caption first comment hashtags cover text Shorts title,writing,must,Later;Predis;Metricool,no,C-04 Packaging Writer,no,docs/01-architecture.md
+Ranked topic ideas from outliers + news,writing,must,none,yes,C-01,yes,supabase/functions/generate-ideas
+Production board scripted to posted,production,should,Later;Metricool,yes,no calendar dates,partial,src/pages/Board.tsx
+Scheduling and auto-posting to Instagram,production,should,Metricool;Buffer;Later;Hootsuite,no,needs Meta app + Graph API publishing,no,
+Own metrics loop (follows saves profile visits per reel),performance,must,Metricool;Later,no,A-01; Meta OAuth not set,no,src/pages/Later.tsx
+Pattern analyst: winners into formats + fatigue,performance,should,none,partial,manual promotion exists; AI teardown not built,partial,src/pages/Formats.tsx
+Weekly playbook writers read,performance,should,none,no,A-02,no,
+Daily brief in app + WhatsApp,manager,must,none,no,Manager is chat-only,no,src/pages/Manager.tsx
+AI team editable without deploy (prompt model schedule),platform,must,none,yes,13 employees as rows,yes,src/pages/Employees.tsx
+Manager proposes changes owner approves,platform,should,none,yes,,yes,supabase/functions/manager-chat
+Multi-tenant tenants roles RLS subdomain custom domain,platform,must,all rivals,partial,0013 written 2026-10-24; untested uncommitted,partial,supabase/migrations/0013_multi_tenant.sql
+Self-serve paid onboarding,platform,must,all rivals,partial,account via Kaizen provision; onboarding form one niche,partial,src/pages/Onboarding.tsx
+Multi-select niches + custom niche steering research,platform,must,none,no,profile.niche is one text,no,supabase/migrations/0013_multi_tenant.sql
+Per-tenant AI caps and usage,platform,must,ManyChat contacts;Later credits,partial,use_ai_credit + ai_usage in 0013,partial,supabase/migrations/0013_multi_tenant.sql
+Billing via Kaizen (provision suspend resume cancel + pass),money,must,n/a,partial,endpoints + pass written; plan rows + live test pending,partial,supabase/functions/kaizen
+Kaizen tenant feed and pulse,money,must,n/a,partial,in 0013,partial,supabase/migrations/0013_multi_tenant.sql
+Instagram comment-to-DM automation,sales,must,ManyChat;Chatfuel;Interakt;Repli,no,Nevorai Connect roadmap; Meta app review,Connect,~/nevorai-connect/docs/send-api.md
+WhatsApp broadcasts inbox AI sales replies,sales,must,AiSensy;Wati;Interakt;Chatfuel,no,Nevorai Connect has it,Connect,~/nevorai-connect/docs/kaizen-contract.md
+Email automation caps unsubscribe templates,sales,should,Kit;Kajabi;Beacons;Graphy,no,shared Resend account exists,no,
+Landing page and website,selling,must,Stan;Beacons;Kajabi;Kit;Graphy,no,Nevorai Websites,Websites,~/landing-page-os/docs/kaizen-contract.md
+Sell courses like a school,selling,must,Graphy;Classplus;Kajabi,no,Nevorai Courses,Courses,~/nevorai-courses/docs/kaizen-contract.md
+Paid calls and bookings,selling,should,Topmate;Stan;Kajabi,no,Nevorai Bookings,Bookings,~/nevorai-bookings/docs/kaizen-contract.md
+Video funnel before a sale,selling,could,none,no,Nevorai Flow,Flow,~/nevorai-cf
+Creator's own Razorpay for customer money (0% cut),money,must,Kajabi (own Stripe);Razorpay Pages,yes,by rule in every Nevorai product,yes,money boundary rule
+Link-in-bio page,selling,could,Linktree;Beacons;Stan,no,Websites one-pager,Websites,
+Uploads on R2,platform,must,n/a,no,no uploads yet,no,
+Phone-first light + dark app shell,platform,must,mixed,partial,dark only desktop sidebar,partial,src/index.css
+Cancel in one tap no questions,money,must,none (top complaint),yes,Kaizen Billing page,yes,~/nevorai-kaizen/docs/product-provisioning.md
