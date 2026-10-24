@@ -15,7 +15,7 @@ as a plug-in by signed pass. SocialWire stays separate (audience and front door)
 - **Phase C done:** `src/tokens.css` (the one tokens file, light and dark), `public/brand/mark-{a,b,c}.svg`,
   `docs/design/preview.html` (dashboard, onboarding, Orbit, phones), `docs/design-system.md`. Not yet wired
   into the app: D1 imports tokens.css and sets data-theme before first paint.
-- **D1 next:** review, test and commit the uncommitted slice; multi-select niches; onboarding screens; gates.
+- **D1 in progress: the slice is reviewed and committed (f544ca2; typecheck clean, 6/6 Deno tests), not pushed and NOT run live. Next: migration 0014 (niches, packs, per-tenant niches), 3-step onboarding, tokens + new shell, gates. Local test harness: supabase/checks/local-setup.sql.
 - **Working tree holds an earlier session's uncommitted slice 1** (0013_multi_tenant.sql, tenant guard,
   Kaizen endpoints, Brand Trainer, Onboarding, Team, tenant-admin). Untested, uncommitted on purpose:
   D1 reads, tests and commits it. Do not run 0013 on the live database before that review.
