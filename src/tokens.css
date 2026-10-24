@@ -1,0 +1,121 @@
+/* Nevorai Creator: design tokens. The ONE tokens file (Phase C, 2026-10-24).
+   Light is the default; dark follows the system unless <html data-theme="light|dark"> says otherwise.
+   The app sets data-theme before first paint (index.html head, from localStorage), so there is no flash.
+   Rules: buttons are rounded rectangles (--radius-md); --radius-pill is for labels and counts only.
+   Fields are 16px on touch screens (mobile-app-feel). Pictures come from media.nevorai.com (R2). */
+
+:root {
+  /* Brand. Violet is the one element shared with the Nevorai family; the symbol is Creator's own. */
+  --brand-magenta: #ff2d8a;
+  --brand-orange: #ff7a1a;
+  --brand-violet: #7c3aed;
+  --brand-amber: #ffb224;
+  --grad-brand: linear-gradient(135deg, #ff2d8a 0%, #ff7a1a 60%, #ffb224 100%);
+  --grad-sunset: linear-gradient(120deg, #7c3aed 0%, #ff2d8a 50%, #ff7a1a 100%);
+  --grad-text: linear-gradient(90deg, #ff2d8a, #ff7a1a);
+
+  /* Type */
+  --font-display: "Bricolage Grotesque", "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", "Noto Sans Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Shape */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  /* Sizes */
+  --page-max: 1320px;
+  --gutter: 3%;
+  --sidebar-w: 264px;
+  --sidebar-min: 200px;
+  --sidebar-max: 360px;
+  --sidebar-folded: 72px;
+  --control-h: 44px;
+  --control-h-sm: 36px;
+  --tabbar-h: 64px;
+  --field-font: 16px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-settle: 220ms;
+
+  /* Light (default) */
+  color-scheme: light;
+  --canvas: #faf7fc;
+  --surface: #ffffff;
+  --surface-2: #f3eef9;
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(32, 16, 64, 0.08);
+  --border: rgba(32, 16, 64, 0.1);
+  --border-strong: rgba(32, 16, 64, 0.18);
+  --text: #17112b;
+  --text-2: #574d6d;
+  --text-3: #8b819f;
+  --on-brand: #ffffff;
+  --focus: #7c3aed;
+  --nav-active-bg: rgba(255, 45, 138, 0.1);
+  --success: #15a34a;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --info: #7c3aed;
+  --shadow-card: 0 1px 2px rgba(23, 17, 43, 0.06), 0 8px 24px -12px rgba(23, 17, 43, 0.12);
+  --shadow-pop: 0 12px 40px -12px rgba(23, 17, 43, 0.25);
+  --shadow-glow: 0 8px 28px -10px rgba(255, 45, 138, 0.45);
+}
+
+/* Dark: chosen */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0b0812;
+  --surface: #130e1d;
+  --surface-2: #1b1429;
+  --glass: rgba(26, 19, 41, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #f6f2fb;
+  --text-2: #b7adc9;
+  --text-3: #7f7493;
+  --on-brand: #ffffff;
+  --focus: #b48cff;
+  --nav-active-bg: rgba(255, 45, 138, 0.14);
+  --success: #34d399;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --info: #b48cff;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --shadow-pop: 0 20px 50px -20px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 10px 30px -10px rgba(255, 45, 138, 0.5);
+}
+
+/* Dark: system, unless light was chosen */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --canvas: #0b0812;
+    --surface: #130e1d;
+    --surface-2: #1b1429;
+    --glass: rgba(26, 19, 41, 0.62);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --text: #f6f2fb;
+    --text-2: #b7adc9;
+    --text-3: #7f7493;
+    --on-brand: #ffffff;
+    --focus: #b48cff;
+    --nav-active-bg: rgba(255, 45, 138, 0.14);
+    --success: #34d399;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --info: #b48cff;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03);
+    --shadow-pop: 0 20px 50px -20px rgba(0, 0, 0, 0.7);
+    --shadow-glow: 0 10px 30px -10px rgba(255, 45, 138, 0.5);
+  }
+}

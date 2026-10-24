@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Nevorai Creator">
+  <defs><linearGradient id="g" x1="10" y1="10" x2="54" y2="54" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#7c3aed"/><stop offset=".55" stop-color="#ff2d8a"/><stop offset="1" stop-color="#ff7a1a"/></linearGradient></defs>
+  <rect x="4" y="4" width="56" height="56" rx="17" fill="url(#g)"/>
+  <path d="M32 12Q34.5 29.5 52 32Q34.5 34.5 32 52Q29.5 34.5 12 32Q29.5 29.5 32 12Z" fill="#fff"/>
+</svg>

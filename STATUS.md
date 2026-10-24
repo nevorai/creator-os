@@ -10,8 +10,12 @@ billing.nevorai.com, with Orbit (per-niche research) as the core and every other
 as a plug-in by signed pass. SocialWire stays separate (audience and front door).
 - **Phase A done:** `docs/market-research.md` (competitors, verbatim complaints, feature matrix, gaps,
   positioning, price ladder, cheap test). Raw review data in `replica/` (feedback tables committed, CSVs not).
-- **Phase B next:** `docs/nevorai-creator-plan.md` (features, niche model, onboarding, hub, tenant model,
-  Kaizen steps, phased build order). Then C design, then D1..D7 build.
+- **Phase B done:** `docs/nevorai-creator-plan.md` (features, niche model, onboarding, hub, tenant model,
+  Kaizen steps, build order D1..D7 with done-criteria and his actions).
+- **Phase C done:** `src/tokens.css` (the one tokens file, light and dark), `public/brand/mark-{a,b,c}.svg`,
+  `docs/design/preview.html` (dashboard, onboarding, Orbit, phones), `docs/design-system.md`. Not yet wired
+  into the app: D1 imports tokens.css and sets data-theme before first paint.
+- **D1 next:** review, test and commit the uncommitted slice; multi-select niches; onboarding screens; gates.
 - **Working tree holds an earlier session's uncommitted slice 1** (0013_multi_tenant.sql, tenant guard,
   Kaizen endpoints, Brand Trainer, Onboarding, Team, tenant-admin). Untested, uncommitted on purpose:
   D1 reads, tests and commits it. Do not run 0013 on the live database before that review.
