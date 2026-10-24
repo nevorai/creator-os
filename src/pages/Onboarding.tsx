@@ -54,8 +54,8 @@ export function OnboardingPage() {
 
   // Feeds offered in step 3: the packs of the chosen niches, pre-ticked.
   const offered = useMemo(() => {
-    const seen = new Map<string, { name: string; url: string }>()
-    for (const p of picks) for (const s of (p.key ? byKey.get(p.key)?.sources : []) ?? []) seen.set(s.url, s)
+    const seen = new Map<string, { name: string; url: string; niche: string }>()
+    for (const p of picks) for (const s of (p.key ? byKey.get(p.key)?.sources : []) ?? []) if (!seen.has(s.url)) seen.set(s.url, { ...s, niche: p.key! })
     return [...seen.values()]
   }, [picks, byKey])
 

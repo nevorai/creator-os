@@ -85,6 +85,7 @@ Deno.serve(async (req) => {
         .filter((h) => /^[a-z0-9._]{1,30}$/.test(h)).slice(0, 50);
       const sources = (Array.isArray(body.sources) ? body.sources : []).map((s) => ({
         name: str((s as Record<string, unknown>)?.name, 80), url: str((s as Record<string, unknown>)?.url, 500),
+        niche: str((s as Record<string, unknown>)?.niche, 41),
       })).filter((s) => s.name && /^https?:\/\//i.test(s.url)).slice(0, 30);
       if (handles.length) {
         const { error } = await db.from("watchlist_accounts").upsert(
@@ -92,7 +93,9 @@ Deno.serve(async (req) => {
         if (error) return json(req, { error: /Plan limit/i.test(error.message) ? "That is more accounts than your plan watches. Pick fewer." : "Could not save the accounts." }, /Plan limit/i.test(error.message) ? 402 : 500);
       }
       if (sources.length) {
-        const { error } = await db.from("sources").insert(sources.map((s) => ({ tenant_id: tenantId, ...s })));
+        const { data: mine } = await db.from("tenant_niches").select("id, niche_key").eq("tenant_id", tenantId);
+        const nicheId = new Map((mine ?? []).map((n: { id: string; niche_key: string | null }) => [n.niche_key, n.id]));
+        const { error } = await db.from("sources").insert(sources.map((s) => ({ tenant_id: tenantId, name: s.name, url: s.url, niche_id: nicheId.get(s.niche) ?? null })));
         if (error) return json(req, { error: /Plan limit/i.test(error.message) ? "That is more sources than your plan reads. Pick fewer." : "Could not save the sources." }, /Plan limit/i.test(error.message) ? 402 : 500);
       }
       await db.from("tenant_profile").update({ onboarded_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("tenant_id", tenantId);

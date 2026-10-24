@@ -49,6 +49,8 @@ export function StudioPage() {
   const [researchText, setResearchText] = useState('')
   const [hooksText, setHooksText] = useState('')
   const [scriptText, setScriptText] = useState('')
+  const [packageText, setPackageText] = useState('')
+  const [shootText, setShootText] = useState('')
   const [skipResearch, setSkipResearch] = useState(false)
 
   // Every step upserts into studio_sessions — one row per topic, filled in as it
@@ -119,6 +121,8 @@ export function StudioPage() {
     setHooksText(s.hooks_text ?? '')
     setChosenHookAndClear(s.chosen_hook ?? '')
     setScriptText(s.script_text ?? '')
+    setPackageText(s.package_text ?? '')
+    setShootText(s.shoot_text ?? '')
   }
 
   function setChosenHookAndClear(h: string) {
@@ -132,6 +136,8 @@ export function StudioPage() {
     setHooksText('')
     setHook('')
     setScriptText('')
+    setPackageText('')
+    setShootText('')
     setSkipResearch(false)
   }
 
@@ -189,6 +195,23 @@ export function StudioPage() {
       await saveStep({ chosen_hook: hook, script_text: text })
     },
   })
+
+  function makeFollowUp(action: 'package' | 'shoot', label: string, field: 'package_text' | 'shoot_text', set: (t: string) => void) {
+    return async () => {
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('studio-generate', { body: { action, topic, script: scriptText } }),
+        40000,
+        label,
+      )
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      const text = data.text as string
+      set(text)
+      await saveStep({ [field]: text })
+    }
+  }
+  const genPackage = useMutation({ mutationFn: makeFollowUp('package', 'Packaging', 'package_text', setPackageText) })
+  const genShoot = useMutation({ mutationFn: makeFollowUp('shoot', 'Shoot card', 'shoot_text', setShootText) })
 
   const canResearch = topic.trim().length > 0
   const canWriteHooks = skipResearch ? canResearch : researchText.trim().length > 0
@@ -303,6 +326,30 @@ export function StudioPage() {
             Saved to History automatically. Once you've shot it, add the real numbers in the
             Library too — that's what teaches the Pattern Analyst later.
           </p>
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Button variant="secondary" onClick={() => genPackage.mutate()} disabled={genPackage.isPending}>
+              {genPackage.isPending ? 'Writing packaging…' : packageText ? 'Rewrite caption and tags' : 'Write caption and tags'}
+            </Button>
+            <Button variant="secondary" onClick={() => genShoot.mutate()} disabled={genShoot.isPending}>
+              {genShoot.isPending ? 'Writing shoot card…' : shootText ? 'Rewrite shoot card' : 'Write shoot card'}
+            </Button>
+          </div>
+          {(genPackage.isError || genShoot.isError) && (
+            <p className="text-sm text-red-400">{((genPackage.error ?? genShoot.error) as Error).message}</p>
+          )}
+        </div>
+      )}
+
+      {packageText && (
+        <div className="mt-6 space-y-2">
+          <h2 className="text-sm font-semibold text-white/70">Caption, tags and cover text</h2>
+          <Card className="p-4"><pre className="whitespace-pre-wrap font-sans text-sm text-white/80">{packageText}</pre></Card>
+        </div>
+      )}
+      {shootText && (
+        <div className="mt-6 space-y-2">
+          <h2 className="text-sm font-semibold text-white/70">Shoot card and edit brief</h2>
+          <Card className="p-4"><pre className="whitespace-pre-wrap font-sans text-sm text-white/80">{shootText}</pre></Card>
         </div>
       )}
 

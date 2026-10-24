@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Badge, Button, Card, Input, PageHeader, Select } from '../components/ui/primitives'
+import { useNiches } from '../lib/niches'
 import type { NewsStory, Source } from '../types'
 
 export function SourcesPage() {
@@ -9,6 +10,9 @@ export function SourcesPage() {
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
   const [type, setType] = useState<'rss' | 'newspaper' | 'other'>('rss')
+  const [nicheId, setNicheId] = useState('')
+  const niches = useNiches()
+  const nicheName = new Map((niches.data ?? []).map((n) => [n.id, n.name]))
 
   const { data: sources, isLoading } = useQuery({
     queryKey: ['sources'],
@@ -37,7 +41,7 @@ export function SourcesPage() {
 
   const addSource = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('sources').insert({ name, url, type })
+      const { error } = await supabase.from('sources').insert({ name, url, type, niche_id: nicheId || null })
       if (error) throw error
     },
     onSuccess: () => {
@@ -71,6 +75,12 @@ export function SourcesPage() {
         </div>
         <div className="flex gap-2">
           <Input placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} className="flex-1" />
+          {(niches.data?.length ?? 0) > 1 && (
+          <Select aria-label="Niche" value={nicheId} onChange={(e) => setNicheId(e.target.value)}>
+            <option value="">All niches</option>
+            {niches.data!.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+          </Select>
+        )}
           <Button type="submit" disabled={addSource.isPending}>
             Add
           </Button>
@@ -89,7 +99,10 @@ export function SourcesPage() {
                 <div className="font-medium text-white">{s.name}</div>
                 <div className="text-xs text-white/40">{s.url}</div>
               </div>
-              <Badge>{s.type}</Badge>
+              <div className="flex shrink-0 gap-1.5">
+                {s.niche_id && nicheName.get(s.niche_id) && <Badge variant="accent">{nicheName.get(s.niche_id)}</Badge>}
+                <Badge>{s.type}</Badge>
+              </div>
             </div>
           ))}
         </Card>

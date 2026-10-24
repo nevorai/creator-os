@@ -1,3 +1,4 @@
+import { useNiches } from '../lib/niches'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
@@ -100,6 +101,10 @@ function IngestPostForm({ accountId }: { accountId: string }) {
 
 export function WatchlistPage() {
   const qc = useQueryClient()
+  const niches = useNiches()
+  const [nicheId, setNicheId] = useState('')
+  const political = (niches.data ?? []).some((n) => /politic|news/i.test(n.name))
+  const nicheName = new Map((niches.data ?? []).map((n) => [n.id, n.name]))
   const [handle, setHandle] = useState('')
   const [wing, setWing] = useState<'right' | 'left' | 'neutral'>('neutral')
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -120,7 +125,7 @@ export function WatchlistPage() {
     mutationFn: async () => {
       const { error } = await supabase
         .from('watchlist_accounts')
-        .insert({ handle: handle.replace(/^@/, ''), wing })
+        .insert({ handle: handle.replace(/^@/, ''), wing: political ? wing : null, niche_id: nicheId || null })
       if (error) throw error
     },
     onSuccess: () => {
@@ -155,11 +160,19 @@ export function WatchlistPage() {
         className="mt-6 flex gap-2"
       >
         <Input placeholder="@handle" value={handle} onChange={(e) => setHandle(e.target.value)} className="flex-1" />
-        <Select value={wing} onChange={(e) => setWing(e.target.value as 'right' | 'left' | 'neutral')}>
-          <option value="right">Right</option>
-          <option value="left">Left</option>
-          <option value="neutral">Neutral</option>
-        </Select>
+        {political && (
+          <Select value={wing} onChange={(e) => setWing(e.target.value as 'right' | 'left' | 'neutral')}>
+            <option value="right">Right</option>
+            <option value="left">Left</option>
+            <option value="neutral">Neutral</option>
+          </Select>
+        )}
+        {(niches.data?.length ?? 0) > 1 && (
+          <Select aria-label="Niche" value={nicheId} onChange={(e) => setNicheId(e.target.value)}>
+            <option value="">All niches</option>
+            {niches.data!.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+          </Select>
+        )}
         <Button type="submit" disabled={addAccount.isPending}>
           Add
         </Button>
@@ -179,7 +192,7 @@ export function WatchlistPage() {
                   className="text-left"
                 >
                   <span className="font-medium text-white">@{acc.handle}</span>{' '}
-                  <span className="text-xs text-white/40">{acc.wing}</span>
+                  <span className="text-xs text-white/40">{acc.wing}{acc.niche_id && nicheName.get(acc.niche_id) ? `${acc.wing ? " · " : ""}${nicheName.get(acc.niche_id)}` : ""}</span>
                 </button>
                 <button
                   onClick={() => toggleActive.mutate(acc)}

@@ -1,129 +1,121 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useNiches } from '../lib/niches'
 import { supabase } from '../lib/supabase'
-import { Badge, Card, EmptyState, PageHeader } from '../components/ui/primitives'
-import type { NewsStory, WatchlistPost } from '../types'
+import { useTenant } from '../lib/tenant'
+import { Badge, Button, Card, EmptyState, PageHeader, StatTile } from '../components/ui/primitives'
 
-type OutlierRow = WatchlistPost & { watchlist_accounts: { handle: string; wing: string | null } | null }
+type Brief = {
+  ideas: { id: string; topic: string; why_now: string | null; confidence: string | null; niche_id: string | null }[]
+  outliers: { id: string; post_url: string; caption: string | null; views: number | null; outlier_ratio: number | null; handle: string }[]
+  news: { id: string; title: string; url: string; published_at: string | null; niche_id: string | null }[]
+  board: Record<string, number>
+  counts: { news_24h: number; outliers_7d: number; watching: number; sources: number }
+}
+const STAGES: [string, string][] = [['scripted', 'Scripted'], ['shooting', 'Shooting'], ['editing', 'Editing'], ['scheduled', 'Scheduled'], ['posted', 'Posted']]
 
+// The morning brief: everything below comes from ONE database call (today_brief), cached for 30 seconds.
 export function TodayPage() {
-  const outliers = useQuery({
-    queryKey: ['today_outliers'],
+  const nav = useNavigate()
+  const { profile } = useTenant()
+  const niches = useNiches()
+  const nicheName = new Map((niches.data ?? []).map((n) => [n.id, n.name]))
+  const brief = useQuery({
+    queryKey: ['today_brief'],
+    staleTime: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('watchlist_posts')
-        .select('*, watchlist_accounts(handle, wing)')
-        .eq('is_outlier', true)
-        .order('outlier_ratio', { ascending: false })
-        .limit(15)
+      const { data, error } = await supabase.rpc('today_brief')
       if (error) throw error
-      return data as unknown as OutlierRow[]
+      return data as Brief
     },
   })
-
-  const news = useQuery({
-    queryKey: ['today_news'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('news_stories')
-        .select('*')
-        .order('fetched_at', { ascending: false })
-        .limit(10)
-      if (error) throw error
-      return data as NewsStory[]
-    },
-  })
+  const b = brief.data
+  const first = (profile?.display_name ?? '').split(' ')[0]
+  const empty = b && !b.ideas.length && !b.news.length && !b.outliers.length
 
   return (
-    <div className="max-w-3xl">
+    <div>
       <PageHeader
-        title="Today"
-        description={
-          <>
-            What the Intelligence desk found overnight — outlier posts from your{' '}
-            <Link to="/watchlist" className="text-accent-300 underline decoration-accent-500/40 underline-offset-2 hover:text-accent-200">
-              Watchlist
-            </Link>{' '}
-            and fresh headlines from your{' '}
-            <Link to="/sources" className="text-accent-300 underline decoration-accent-500/40 underline-offset-2 hover:text-accent-200">
-              Sources
-            </Link>
-            . No AI Manager writing this up yet — that's the next step once this raw feed proves
-            useful day to day.
-          </>
-        }
+        title={first ? `Good to see you, ${first}` : 'Today'}
+        description={niches.data?.length ? `Your brief for ${niches.data.map((n) => n.name).join(' and ')}.` : 'Your morning brief.'}
+        actions={<Link to="/ideas"><Button variant="secondary">Find new ideas</Button></Link>}
       />
+      {brief.isLoading && <div className="mt-6 h-40 animate-pulse rounded-[20px] bg-white/5" aria-label="Loading" />}
+      {brief.isError && <p className="mt-6 text-sm text-red-500">{(brief.error as Error).message}</p>}
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-sm font-semibold text-white/50">
-          Outlier posts — 3× or more that account's own 30-day median
-        </h2>
-        {outliers.isLoading && <p className="text-sm text-white/40">Loading…</p>}
-        {outliers.isError && (
-          <p className="text-sm text-red-400">{(outliers.error as Error).message}</p>
-        )}
-        {outliers.data && outliers.data.length === 0 && (
-          <EmptyState
-            title="No outliers yet"
-            description="The Influencer Watch desk runs daily at 08:30 IST once your Watchlist has active accounts — check back tomorrow, or log a link manually on the Watchlist screen."
-          />
-        )}
-        <div className="space-y-2">
-          {outliers.data?.map((o) => (
-            <a key={o.id} href={o.post_url} target="_blank" rel="noreferrer">
-              <Card className="p-4 transition-colors hover:border-accent-500/40">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-medium text-white">
-                    @{o.watchlist_accounts?.handle ?? 'unknown'}{' '}
-                    {o.watchlist_accounts?.wing && (
-                      <span className="text-xs font-normal text-white/40">
-                        ({o.watchlist_accounts.wing})
-                      </span>
-                    )}
-                  </span>
-                  <Badge variant="warning">
-                    {o.outlier_ratio ? `${o.outlier_ratio.toFixed(1)}×` : 'outlier'}
-                  </Badge>
-                </div>
-                {o.caption && <p className="mt-1 truncate text-xs text-white/40">{o.caption}</p>}
-                <p className="mt-1 text-xs text-white/30">
-                  {o.views?.toLocaleString() ?? '—'} views · {o.posted_at ?? 'no date'}
-                </p>
+      {b && (
+        <>
+          <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatTile label="Headlines, last 24 h" value={b.counts.news_24h} hint={`${b.counts.sources} sources`} />
+            <StatTile label="Outliers, last 7 days" value={b.counts.outliers_7d} hint={`${b.counts.watching} accounts watched`} />
+            <StatTile label="Ideas waiting" value={b.ideas.length} />
+            <StatTile label="In the pipeline" value={STAGES.reduce((n, [k]) => n + (k === 'posted' ? 0 : (b.board[k] ?? 0)), 0)} hint={`${b.board.posted ?? 0} posted`} />
+          </div>
+
+          {empty && (
+            <div className="mt-6">
+              <EmptyState
+                title="Orbit is warming up"
+                description="Add what to watch in Watchlist and Sources. The first headlines arrive at the next nightly run; you can ask for ideas any time."
+              />
+            </div>
+          )}
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <section className="min-w-0">
+              <h2 className="mb-3 text-sm font-semibold text-white/50">Ideas ready for you</h2>
+              {b.ideas.length === 0 && <EmptyState title="No ideas yet" description="Open Ideas and ask the Topic Planner for today's list." />}
+              <div className="space-y-2">
+                {b.ideas.map((i) => (
+                  <Card key={i.id} className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-white">{i.topic}</p>
+                      {i.niche_id && nicheName.get(i.niche_id) && <Badge variant="accent">{nicheName.get(i.niche_id)}</Badge>}
+                    </div>
+                    {i.why_now && <p className="mt-1 text-xs text-white/50">{i.why_now}</p>}
+                    <Button variant="secondary" className="mt-3" onClick={() => nav('/studio', { state: { topic: i.topic } })}>Use in Studio</Button>
+                  </Card>
+                ))}
+              </div>
+            </section>
+
+            <section className="min-w-0">
+              <h2 className="mb-3 text-sm font-semibold text-white/50">Outliers: 3× or more their own normal</h2>
+              {b.outliers.length === 0 && <EmptyState title="No outliers yet" description="Watched accounts are checked every morning." />}
+              <div className="space-y-2">
+                {b.outliers.map((o) => (
+                  <a key={o.id} href={o.post_url} target="_blank" rel="noreferrer" className="block">
+                    <Card className="p-4 transition-colors hover:border-accent-500/40">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="min-w-0 truncate font-medium text-white">@{o.handle}</span>
+                        <Badge variant="warning">{o.outlier_ratio ? `${o.outlier_ratio.toFixed(1)}×` : 'outlier'}</Badge>
+                      </div>
+                      {o.caption && <p className="mt-1 line-clamp-2 text-xs text-white/50">{o.caption}</p>}
+                      <p className="mt-1 text-xs text-white/40">{o.views?.toLocaleString() ?? '—'} views</p>
+                    </Card>
+                  </a>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <section className="mt-6">
+            <h2 className="mb-3 text-sm font-semibold text-white/50">Latest headlines</h2>
+            {b.news.length === 0 ? (
+              <EmptyState title="Nothing pulled yet" description="The nightly run reads every source you added." />
+            ) : (
+              <Card className="divide-y divide-border-subtle overflow-hidden">
+                {b.news.map((s) => (
+                  <a key={s.id} href={s.url} target="_blank" rel="noreferrer" className="flex items-start justify-between gap-3 p-4 text-sm transition-colors hover:bg-white/[0.03]">
+                    <span className="font-medium text-white">{s.title}</span>
+                    {s.niche_id && nicheName.get(s.niche_id) && <Badge className="shrink-0">{nicheName.get(s.niche_id)}</Badge>}
+                  </a>
+                ))}
               </Card>
-            </a>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-8">
-        <h2 className="mb-3 text-sm font-semibold text-white/50">Latest headlines</h2>
-        {news.isLoading && <p className="text-sm text-white/40">Loading…</p>}
-        {news.isError && <p className="text-sm text-red-400">{(news.error as Error).message}</p>}
-        {news.data && news.data.length === 0 && (
-          <EmptyState
-            title="Nothing pulled yet"
-            description="The nightly job runs at 02:00 IST once you've added a source, or add one on the Sources screen."
-          />
-        )}
-        {news.data && news.data.length > 0 && (
-          <Card className="divide-y divide-border-subtle overflow-hidden">
-            {news.data.map((s) => (
-              <a
-                key={s.id}
-                href={s.url}
-                target="_blank"
-                rel="noreferrer"
-                className="block p-4 text-sm transition-colors hover:bg-white/[0.03]"
-              >
-                <span className="font-medium text-white hover:text-accent-300">{s.title}</span>
-                <div className="mt-0.5 text-xs text-white/30">
-                  {s.published_at ? new Date(s.published_at).toLocaleDateString() : '—'}
-                </div>
-              </a>
-            ))}
-          </Card>
-        )}
-      </section>
+            )}
+          </section>
+        </>
+      )}
     </div>
   )
 }

@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
 
   const { data: sources, error: sourcesError } = await supabase
     .from("sources")
-    .select("id, url, tenant_id, tenants!inner(status)")
+    .select("id, url, tenant_id, niche_id, tenants!inner(status)")
     .eq("active", true)
     .eq("tenants.status", "active");
 
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
       const { error: upsertError } = await supabase
         .from("news_stories")
         .upsert(
-          items.map((item) => ({ ...item, source_id: source.id, tenant_id: source.tenant_id })),
+          items.map((item) => ({ ...item, source_id: source.id, tenant_id: source.tenant_id, niche_id: source.niche_id })),
           { onConflict: "tenant_id,url", ignoreDuplicates: true },
         );
 

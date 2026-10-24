@@ -27,6 +27,13 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   const { data: brand } = await supabase.from("brand_brain").select("pillars").eq("tenant_id", tid).maybeSingle();
+  const { data: myNiches } = await supabase
+    .from("tenant_niches")
+    .select("id, is_primary, custom_name, niches(name)")
+    .eq("tenant_id", tid);
+  type NicheRow = { id: string; is_primary: boolean; custom_name: string | null; niches: { name: string } | null };
+  const nicheName = new Map((myNiches as NicheRow[] | null ?? []).map((n) => [n.id, n.niches?.name ?? n.custom_name ?? ""]));
+  const nicheByName = new Map([...nicheName].map(([id, name]) => [name.toLowerCase(), id]));
   const { data: who } = await supabase.from("tenant_profile").select("display_name").eq("tenant_id", tid).maybeSingle();
 
   const { data: outliers } = await supabase
@@ -39,7 +46,7 @@ Deno.serve(async (req) => {
 
   const { data: news } = await supabase
     .from("news_stories")
-    .select("title, url")
+    .select("title, url, niche_id")
     .eq("tenant_id", tid)
     .order("fetched_at", { ascending: false })
     .limit(15);
@@ -65,14 +72,15 @@ Deno.serve(async (req) => {
       .join("\n") || "(none)";
 
   const newsBlock =
-    (news ?? []).map((n) => `- ${n.title} (${n.url})`).join("\n") || "(none)";
+    (news ?? []).map((n) => `- ${n.title} (${n.url})${n.niche_id && nicheName.get(n.niche_id) ? ` [${nicheName.get(n.niche_id)}]` : ""}`).join("\n") || "(none)";
 
   const systemPrompt =
     "You are the Topic Planner employee (C-01) inside a private Creator workspace.\n\n" +
+    (nicheName.size ? `Their niches: ${[...nicheName.values()].join(", ")}. Spread the ideas across these niches, weighted to the first one, and only use topics that fit them.\n\n` : "") +
     `Their pillars: ${(brand?.pillars ?? []).join(", ")}\n\n` +
     (employee?.prompt ? `Instructions: ${employee.prompt}\n\n` : "") +
     "Output STRICT JSON only — an array of up to 5 objects, each shaped exactly like: " +
-    '{"topic": "...", "pillar": "...", "why_now": "...", "confidence": "high"|"medium"|"low", "source": "..."}. ' +
+    '{"topic": "...", "pillar": "...", "why_now": "...", "confidence": "high"|"medium"|"low", "source": "...", "niche": "<one of their niches, exactly as written>"}. ' +
     "No markdown, no prose outside the JSON array, no trailing commentary.";
 
   const userPrompt =
@@ -122,6 +130,7 @@ Deno.serve(async (req) => {
       why_now: p.why_now ? String(p.why_now).slice(0, 500) : null,
       confidence: ["high", "medium", "low"].includes(String(p.confidence)) ? String(p.confidence) : null,
       source: p.source ? String(p.source).slice(0, 300) : null,
+      niche_id: nicheByName.get(String(p.niche ?? "").toLowerCase()) ?? null,
     }))
     .filter((r) => r.topic);
 

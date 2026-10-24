@@ -22,7 +22,9 @@ import { aiKey, guard, spend } from "../_shared/tenant.ts";
 type Body =
   | { action: "research"; topic: string }
   | { action: "hooks"; topic: string; research?: string }
-  | { action: "script"; topic: string; hook: string; research?: string };
+  | { action: "script"; topic: string; hook: string; research?: string }
+  | { action: "package"; topic: string; script: string; research?: undefined }
+  | { action: "shoot"; topic: string; script: string; research?: undefined };
 
 function extractText(content: Array<{ type: string; text?: string }>): string {
   // A response that used web search can carry several text blocks
@@ -63,7 +65,7 @@ Deno.serve(async (req) => {
     .from("employees")
     .select("code, prompt, model")
     .eq("tenant_id", g.tenantId)
-    .in("code", ["I-04", "C-02", "C-03"]);
+    .in("code", ["I-04", "C-02", "C-03", "C-04", "P-01"]);
   const employeeByCode = new Map((employeeRows ?? []).map((e) => [e.code, e]));
 
   // --- Research: no Brand Brain, no voice — this is a fact-finding call only. ---
@@ -150,7 +152,7 @@ Deno.serve(async (req) => {
 
   let userPrompt: string;
   let maxTokens: number;
-  let employeeCode: "C-02" | "C-03";
+  let employeeCode: "C-02" | "C-03" | "C-04" | "P-01";
   if (body.action === "hooks") {
     employeeCode = "C-02";
     userPrompt =
@@ -160,6 +162,25 @@ Deno.serve(async (req) => {
       "Tag each one [WIDE REACH] or [HIGH INTENT]. Number them 1-8, one per line, hook text only " +
       "after the tag — no extra commentary.";
     maxTokens = 1200;
+  } else if (body.action === "package" || body.action === "shoot") {
+    if (!body.script?.trim()) return json(req, { error: "script is required" }, 400);
+    if (body.action === "package") {
+      employeeCode = "C-04";
+      userPrompt =
+        `Topic: ${body.topic}\n\nFinished script:\n${body.script}\n\n` +
+        "Write the packaging for this reel with these labelled sections, in the creator's language and voice: " +
+        "CAPTION (with a share line), FIRST COMMENT, HASHTAGS (8 to 12, relevant to their niches, no banned or spammy tags), " +
+        "ON-SCREEN TEXT (the 3 to 5 lines that appear while speaking), COVER TEXT (max 6 words), SHORTS TITLE (max 70 characters). " +
+        "Use only facts that are in the script. Output only the sections.";
+      maxTokens = 1500;
+    } else {
+      employeeCode = "P-01";
+      userPrompt =
+        `Topic: ${body.topic}\n\nFinished script:\n${body.script}\n\n` +
+        "Write a SHOOT CARD (setting, wardrobe, props, b-roll shots) and an EDIT BRIEF (cut points, caption placement, zooms, music mood, target length in seconds) " +
+        "precise enough that a hired editor never has to call. You cannot edit video; write only the brief. Output only these two sections.";
+      maxTokens = 1500;
+    }
   } else {
     if (!body.hook?.trim()) {
       return json(req, { error: "hook is required for action=script" }, 400);

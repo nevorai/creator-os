@@ -24,6 +24,7 @@ export type WatchlistAccount = {
   id: string
   handle: string
   wing: 'right' | 'left' | 'neutral' | null
+  niche_id?: string | null
   notes: string | null
   active: boolean
   created_at: string
@@ -34,6 +35,7 @@ export type Source = {
   name: string
   url: string
   type: 'rss' | 'newspaper' | 'other'
+  niche_id?: string | null
   active: boolean
   created_at: string
 }
@@ -118,6 +120,8 @@ export type StudioSession = {
   hooks_text: string | null
   chosen_hook: string | null
   script_text: string | null
+  package_text: string | null
+  shoot_text: string | null
   reel_id: string | null
   production_status: 'scripted' | 'shooting' | 'editing' | 'scheduled' | 'posted'
   created_at: string
