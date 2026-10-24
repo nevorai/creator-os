@@ -51,7 +51,7 @@ export function SourcesPage() {
     <div className="max-w-2xl">
       <PageHeader
         title="Sources"
-        description="Newspapers and RSS feeds the News Desk Analyst reads nightly, kept to what is relevant to his niche."
+        description="Newspapers and RSS feeds the News Desk Analyst reads nightly, kept to what is relevant to your niche."
       />
 
       <form

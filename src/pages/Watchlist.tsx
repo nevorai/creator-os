@@ -144,7 +144,7 @@ export function WatchlistPage() {
     <div className="max-w-2xl">
       <PageHeader
         title="Watchlist"
-        description="40 accounts, tagged right / left / neutral. The Influencer Watch desk logs every new post against this list — outliers are ~3× that account's own 30-day median, never an absolute threshold."
+        description="Accounts you watch, tagged right / left / neutral. The Influencer Watch desk logs every new post against this list — outliers are ~3× that account's own 30-day median, never an absolute threshold."
       />
 
       <form

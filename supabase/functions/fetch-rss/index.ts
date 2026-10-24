@@ -5,6 +5,7 @@
 // see _shared/owner.ts.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { scheduleOrOwner } from "../_shared/owner.ts";
+import { safeFetchText } from "../_shared/safe-fetch.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -43,8 +44,9 @@ Deno.serve(async (req) => {
 
   const { data: sources, error: sourcesError } = await supabase
     .from("sources")
-    .select("id, url")
-    .eq("active", true);
+    .select("id, url, tenant_id, tenants!inner(status)")
+    .eq("active", true)
+    .eq("tenants.status", "active");
 
   if (sourcesError) {
     return new Response(JSON.stringify({ error: sourcesError.message }), { status: 500 });
@@ -55,8 +57,7 @@ Deno.serve(async (req) => {
 
   for (const source of sources ?? []) {
     try {
-      const res = await fetch(source.url, { headers: { "User-Agent": "CreatorOS/1.0" } });
-      const xml = await res.text();
+      const xml = await safeFetchText(source.url, { "User-Agent": "NevoraiCreator/1.0" });
       const items = parseFeedItems(xml).slice(0, 30);
 
       if (items.length === 0) continue;
@@ -64,8 +65,8 @@ Deno.serve(async (req) => {
       const { error: upsertError } = await supabase
         .from("news_stories")
         .upsert(
-          items.map((item) => ({ ...item, source_id: source.id })),
-          { onConflict: "url", ignoreDuplicates: true },
+          items.map((item) => ({ ...item, source_id: source.id, tenant_id: source.tenant_id })),
+          { onConflict: "tenant_id,url", ignoreDuplicates: true },
         );
 
       if (upsertError) {

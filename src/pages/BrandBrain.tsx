@@ -1,10 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Badge, Button, FieldLabel, Input, PageHeader, Select, Textarea } from '../components/ui/primitives'
+import { Button, FieldLabel, Input, PageHeader, Select, Textarea } from '../components/ui/primitives'
 import type { BrandBrain } from '../types'
-
-const PILLARS_DEFAULT = ['Politics', 'Current Affairs', 'Incidents', 'Reservation', 'Business Politics']
 
 export function BrandBrainPage() {
   const qc = useQueryClient()
@@ -18,6 +16,7 @@ export function BrandBrainPage() {
   })
 
   const [form, setForm] = useState({
+    pillars: '',
     hook_formula: '',
     voice_notes: '',
     banned_claims: '',
@@ -27,6 +26,7 @@ export function BrandBrainPage() {
   useEffect(() => {
     if (data) {
       setForm({
+        pillars: (data.pillars ?? []).join(', '),
         hook_formula: data.hook_formula ?? '',
         voice_notes: data.voice_notes ?? '',
         banned_claims: data.banned_claims ?? '',
@@ -44,7 +44,7 @@ export function BrandBrainPage() {
           voice_notes: form.voice_notes || null,
           banned_claims: form.banned_claims || null,
           language_register: form.language_register || null,
-          pillars: PILLARS_DEFAULT,
+          pillars: form.pillars.split(',').map((p) => p.trim()).filter(Boolean).slice(0, 8),
           updated_at: new Date().toISOString(),
         })
         .eq('id', 1)
@@ -67,16 +67,14 @@ export function BrandBrainPage() {
         }}
         className="mt-6 space-y-4"
       >
-        <div>
-          <FieldLabel>Pillars</FieldLabel>
-          <div className="flex flex-wrap gap-2">
-            {PILLARS_DEFAULT.map((p) => (
-              <Badge key={p} variant="accent">
-                {p}
-              </Badge>
-            ))}
-          </div>
-        </div>
+        <label className="block">
+          <FieldLabel>Pillars (your 3 to 6 content themes, separated by commas)</FieldLabel>
+          <Input
+            value={form.pillars}
+            onChange={(e) => setForm({ ...form, pillars: e.target.value })}
+            placeholder="e.g. Myths, Daily habits, Case studies"
+          />
+        </label>
 
         <label className="block">
           <FieldLabel>Hook formula</FieldLabel>
@@ -93,7 +91,7 @@ export function BrandBrainPage() {
             rows={6}
             value={form.voice_notes}
             onChange={(e) => setForm({ ...form, voice_notes: e.target.value })}
-            placeholder="e.g. six-beat structure, teacher framing, speaks as 'hum' not 'main'…"
+            placeholder="e.g. short punchy lines, teacher framing, speaks as 'hum' not 'main'…"
           />
         </label>
 
@@ -118,11 +116,10 @@ export function BrandBrainPage() {
             <option value="">Undecided</option>
             <option value="clean">Clean — no crude language, ever</option>
             <option value="mixed">Mixed — occasional, context-dependent</option>
-            <option value="crude">Unfiltered — matches his real speech</option>
+            <option value="crude">Unfiltered — matches your real speech</option>
           </Select>
           <p className="mt-1.5 text-xs text-white/30">
-            Pending decision — he wants brand deals later, this affects what the Scriptwriter can
-            write.
+            This sets how plain or rough your scripts are. Choose it with brand deals in mind.
           </p>
         </label>
 

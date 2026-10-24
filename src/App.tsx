@@ -3,6 +3,12 @@ import { HashRouter, Route, Routes } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/Layout'
 import { AuthProvider, useAuth } from './lib/auth'
+import { TenantProvider, useTenant } from './lib/tenant'
+import { BrandTrainerPage } from './pages/BrandTrainer'
+import { NoWorkspacePage } from './pages/NoWorkspace'
+import { OnboardingPage } from './pages/Onboarding'
+import { SetPasswordPage } from './pages/SetPassword'
+import { TeamPage } from './pages/Team'
 import { LoginPage } from './pages/Login'
 import { BoardPage } from './pages/Board'
 import { BrandBrainPage } from './pages/BrandBrain'
@@ -26,7 +32,9 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         <AuthProvider>
-          <Gate />
+          <TenantProvider>
+            <Gate />
+          </TenantProvider>
         </AuthProvider>
       </ErrorBoundary>
     </QueryClientProvider>
@@ -34,23 +42,31 @@ export default function App() {
 }
 
 function Gate() {
-  const { session, loading } = useAuth()
+  const { session, loading, needsPassword } = useAuth()
+  const { loading: tenantLoading, tenant, profile, isOwner } = useTenant()
 
-  if (loading) {
+  if (loading || (session && tenantLoading)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas text-sm text-white/40">
+      <div className="flex min-h-dvh items-center justify-center bg-canvas text-sm text-white/40">
         Loading…
       </div>
     )
   }
 
   if (!session) return <LoginPage />
+  if (needsPassword) return <SetPasswordPage />
+  if (!tenant) return <NoWorkspacePage email={session.user.email} />
+  // A brand-new owner goes through the four questions and the Brand Trainer first.
+  const needsOnboarding = isOwner && !profile?.onboarded_at
 
   return (
     <HashRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route index element={<TodayPage />} />
+            <Route index element={needsOnboarding ? <OnboardingPage /> : <TodayPage />} />
+            <Route path="welcome" element={<OnboardingPage />} />
+            <Route path="brand-trainer" element={<BrandTrainerPage />} />
+            <Route path="team" element={<TeamPage />} />
             <Route path="manager" element={<ManagerPage />} />
             <Route path="ideas" element={<IdeasPage />} />
             <Route path="studio" element={<StudioPage />} />

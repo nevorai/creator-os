@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase'
 import { Button, Card, Input, PageHeader, Select, Textarea } from '../components/ui/primitives'
 import type { Reel } from '../types'
 
-const PILLARS = ['Politics', 'Current Affairs', 'Incidents', 'Reservation', 'Business Politics']
 
 const emptyForm = {
   posted_at: '',
@@ -66,6 +65,16 @@ export function LibraryPage() {
     onError: (e: Error) => setIgStatus(e.message),
   })
 
+  // This creator's own pillars (from their Brand Brain), not a fixed list.
+  const { data: brainPillars } = useQuery({
+    queryKey: ['brand_brain_pillars'],
+    queryFn: async () => {
+      const { data } = await supabase.from('brand_brain').select('pillars').eq('id', 1).maybeSingle()
+      return ((data?.pillars as string[] | undefined) ?? []).filter(Boolean)
+    },
+  })
+  const PILLARS = brainPillars ?? []
+
   const { data: reels, isLoading, isError, error } = useQuery({
     queryKey: ['reels'],
     queryFn: async () => {
@@ -112,7 +121,7 @@ export function LibraryPage() {
     <div className="max-w-4xl">
       <PageHeader
         title="Library"
-        description="The foundation table. Every reel he has posted — transcript and metrics together. This is also the Voice Training intake: paste past reels here to build the voice profile and give the Pattern Analyst labelled examples."
+        description="The foundation table. Every reel you have posted — transcript and metrics together. This is also the Voice Training intake: paste past reels here to build the voice profile and give the Pattern Analyst labelled examples."
         actions={<Button onClick={() => setOpen((v) => !v)}>{open ? 'Close' : '+ Add reel'}</Button>}
       />
 

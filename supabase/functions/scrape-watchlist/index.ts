@@ -57,8 +57,9 @@ Deno.serve(async (req) => {
 
   const { data: accounts, error: accountsErr } = await supabase
     .from("watchlist_accounts")
-    .select("id, handle")
-    .eq("active", true);
+    .select("id, handle, tenant_id, tenants!inner(status)")
+    .eq("active", true)
+    .eq("tenants.status", "active");
   if (accountsErr) {
     return new Response(JSON.stringify({ error: accountsErr.message }), { status: 500 });
   }
@@ -68,8 +69,15 @@ Deno.serve(async (req) => {
     });
   }
 
-  const handleToId = new Map(accounts.map((a) => [a.handle.toLowerCase(), a.id]));
-  const directUrls = accounts.map((a) => `https://www.instagram.com/${a.handle}/`);
+  // Two creators may watch the same handle: one Apify visit, one saved row per creator.
+  const handleToTargets = new Map<string, { id: string; tenant_id: string }[]>();
+  for (const a of accounts) {
+    const key = a.handle.toLowerCase();
+    handleToTargets.set(key, [...(handleToTargets.get(key) ?? []), { id: a.id, tenant_id: a.tenant_id }]);
+  }
+  const directUrls = [...handleToTargets.keys()]
+    .filter((h) => /^[a-z0-9._]{1,30}$/.test(h))
+    .map((h) => `https://www.instagram.com/${h}/`);
 
   const runRes = await fetch(
     `https://api.apify.com/v2/acts/${APIFY_ACTOR}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`,
@@ -97,28 +105,31 @@ Deno.serve(async (req) => {
 
   for (const item of items) {
     if (!item.url || !item.ownerUsername) continue;
-    const accountId = handleToId.get(item.ownerUsername.toLowerCase());
-    if (!accountId) continue; // post from a redirect/tagged account, not one we're tracking
+    const targets = handleToTargets.get(item.ownerUsername.toLowerCase());
+    if (!targets) continue; // post from a redirect/tagged account, not one we're tracking
 
     const views = item.videoPlayCount ?? item.videoViewCount ?? 0;
-    const { error } = await supabase.from("watchlist_posts").upsert(
-      {
-        account_id: accountId,
-        post_url: item.url,
-        posted_at: item.timestamp ? new Date(item.timestamp).toISOString().slice(0, 10) : null,
-        caption: item.caption ?? null,
-        views,
-        likes: item.likesCount ?? null,
-        comments: item.commentsCount ?? null,
-      },
-      { onConflict: "post_url" },
-    );
-    if (error) {
-      errors.push(`${item.url}: ${error.message}`);
-      continue;
+    for (const t of targets) {
+      const { error } = await supabase.from("watchlist_posts").upsert(
+        {
+          tenant_id: t.tenant_id,
+          account_id: t.id,
+          post_url: item.url,
+          posted_at: item.timestamp ? new Date(item.timestamp).toISOString().slice(0, 10) : null,
+          caption: item.caption ?? null,
+          views,
+          likes: item.likesCount ?? null,
+          comments: item.commentsCount ?? null,
+        },
+        { onConflict: "tenant_id,post_url" },
+      );
+      if (error) {
+        errors.push(`${item.url}: ${error.message}`);
+        continue;
+      }
+      upserted += 1;
+      touchedAccountIds.add(t.id);
     }
-    upserted += 1;
-    touchedAccountIds.add(accountId);
   }
 
   // Second pass: recompute each touched account's own 30-day median and flag

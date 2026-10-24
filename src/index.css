@@ -58,3 +58,11 @@ body {
   background: var(--color-border);
   border-radius: 8px;
 }
+
+/* Phone: fields at 16px or more (iOS Safari zooms the whole page below that), nothing wobbles sideways. */
+html, body { overflow-x: clip; overscroll-behavior-y: none; -webkit-text-size-adjust: 100%; }
+@media (max-width: 767px) {
+  input, textarea, select { font-size: 16px !important; }
+}
+button, nav, aside { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+button { touch-action: manipulation; }

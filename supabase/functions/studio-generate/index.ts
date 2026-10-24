@@ -16,12 +16,8 @@
 // are allowed to use — enforced by instruction, and the research text is
 // always returned to the browser so he can check the sources himself before
 // he ever says a line on camera.
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeadersFor, json } from "../_shared/cors.ts";
-import { ownerOnly } from "../_shared/owner.ts";
-
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+import { aiKey, guard, spend } from "../_shared/tenant.ts";
 
 type Body =
   | { action: "research"; topic: string }
@@ -41,35 +37,18 @@ function extractText(content: Array<{ type: string; text?: string }>): string {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeadersFor(req) });
 
-  // Require a real signed-in user — the anon key alone must not be enough to
-  // spend Adarsh's Anthropic credits. Verify the caller's own JWT first,
-  // then switch to the service-role client to read secrets/brand data.
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const asCaller = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    db: { schema: "creator_os" },
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: userData, error: authError } = await asCaller.auth.getUser();
-  if (authError || !userData?.user) {
-    return json(req, { error: "Not signed in." }, 401);
-  }
-  // Signed in is not enough in the shared Nevorai OS project: only a Creator OS owner gets past here.
-  const notOwner = await ownerOnly(req);
-  if (notOwner) return notOwner;
+  // Signed in and a member of THIS creator's workspace, with a role that may write.
+  const g = await guard(req, "write");
+  if (g instanceof Response) return g;
+  const supabase = g.db;
 
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-    db: { schema: "creator_os" },
-  });
-
-  const { data: settings } = await supabase
-    .from("app_settings")
-    .select("anthropic_api_key")
-    .eq("id", 1)
-    .single();
-  const apiKey = settings?.anthropic_api_key;
-  if (!apiKey) {
-    return json(req, { error: "No Anthropic key saved. Add one in Settings first." }, 400);
+  const k = await aiKey(supabase, g.tenantId);
+  if (!k) {
+    return json(req, { error: "No AI key is set up yet. Add one in Settings, or ask Nevorai." }, 400);
   }
+  const apiKey = k.key;
+  const capped = await spend(req, g, k);
+  if (capped) return capped;
 
   const body = (await req.json()) as Body;
   if (!body.topic?.trim()) {
@@ -83,6 +62,7 @@ Deno.serve(async (req) => {
   const { data: employeeRows } = await supabase
     .from("employees")
     .select("code, prompt, model")
+    .eq("tenant_id", g.tenantId)
     .in("code", ["I-04", "C-02", "C-03"]);
   const employeeByCode = new Map((employeeRows ?? []).map((e) => [e.code, e]));
 
@@ -133,8 +113,13 @@ Deno.serve(async (req) => {
   const { data: brand } = await supabase
     .from("brand_brain")
     .select("pillars, hook_formula, voice_notes, banned_claims")
-    .eq("id", 1)
-    .single();
+    .eq("tenant_id", g.tenantId)
+    .maybeSingle();
+  const { data: who } = await supabase
+    .from("tenant_profile")
+    .select("display_name, niche, language")
+    .eq("tenant_id", g.tenantId)
+    .maybeSingle();
 
   const brandBrainBlock = [
     `Pillars: ${(brand?.pillars ?? []).join(", ")}`,
@@ -146,8 +131,10 @@ Deno.serve(async (req) => {
     .join("\n\n");
 
   const systemPrompt =
-    "You are the scriptwriting employee inside Adarsh's personal Creator OS. Everything below is " +
-    "his own voice profile and rules, learned from his real reels — follow it exactly, don't " +
+    `You are the scriptwriting employee inside ${who?.display_name ?? "this creator"}'s private Creator workspace` +
+    (who?.niche ? ` (niche: ${who.niche})` : "") +
+    (who?.language ? `; write in ${who.language}` : "") +
+    ". Everything below is their own voice profile and rules, learned from their real content — follow it exactly, don't " +
     "default to generic AI-influencer phrasing.\n\n" +
     brandBrainBlock +
     "\n\nHARD RULE: never state a specific number, date, name, quote, or case as fact unless it " +

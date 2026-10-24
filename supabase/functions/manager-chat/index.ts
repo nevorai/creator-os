@@ -5,12 +5,8 @@
 // applied automatically. Applying/rejecting happens from the Manager screen
 // as a plain table write against `employees` -- no separate edge function,
 // since the owner-only RLS (migration 0012) already allows his write.
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeadersFor, json } from "../_shared/cors.ts";
-import { ownerOnly } from "../_shared/owner.ts";
-
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+import { aiKey, guard, spend } from "../_shared/tenant.ts";
 
 const PROPOSE_TOOL = {
   name: "propose_employee_change",
@@ -40,30 +36,18 @@ type ContentBlock =
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeadersFor(req) });
 
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const asCaller = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    db: { schema: "creator_os" },
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: userData, error: authError } = await asCaller.auth.getUser();
-  if (authError || !userData?.user) {
-    return json(req, { error: "Not signed in." }, 401);
-  }
-  // Signed in is not enough in the shared Nevorai OS project: only a Creator OS owner gets past here.
-  const notOwner = await ownerOnly(req);
-  if (notOwner) return notOwner;
+  const g = await guard(req, "write");
+  if (g instanceof Response) return g;
+  const supabase = g.db;
+  const tid = g.tenantId;
 
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { db: { schema: "creator_os" } });
-
-  const { data: settings } = await supabase
-    .from("app_settings")
-    .select("anthropic_api_key")
-    .eq("id", 1)
-    .single();
-  const apiKey = settings?.anthropic_api_key;
-  if (!apiKey) {
-    return json(req, { error: "No Anthropic key saved. Add one in Settings first." }, 400);
-  }
+  const k = await aiKey(supabase, tid);
+  if (!k) return json(req, { error: "No AI key is set up yet. Add one in Settings, or ask Nevorai." }, 400);
+  const apiKey = k.key;
+  const capped = await spend(req, g, k);
+  if (capped) return capped;
+  const { data: who } = await supabase.from("tenant_profile").select("display_name").eq("tenant_id", tid).maybeSingle();
+  const name = who?.display_name ?? "the creator";
 
   const body = (await req.json()) as { message?: string };
   if (!body.message?.trim()) {
@@ -72,7 +56,7 @@ Deno.serve(async (req) => {
 
   const { data: userMsg, error: insertUserErr } = await supabase
     .from("manager_messages")
-    .insert({ role: "user", content: body.message })
+    .insert({ tenant_id: tid, role: "user", content: body.message })
     .select("id")
     .single();
   if (insertUserErr) return json(req, { error: insertUserErr.message }, 500);
@@ -80,12 +64,15 @@ Deno.serve(async (req) => {
   const { data: history } = await supabase
     .from("manager_messages")
     .select("role, content")
-    .order("created_at", { ascending: true })
+    .eq("tenant_id", tid)
+    .order("created_at", { ascending: false })
     .limit(40);
+  history?.reverse();
 
   const { data: employees } = await supabase
     .from("employees")
     .select("code, name, desk, prompt, provider, model, schedule, enabled")
+    .eq("tenant_id", tid)
     .order("code");
 
   const employeesBlock = (employees ?? [])
@@ -97,9 +84,9 @@ Deno.serve(async (req) => {
     .join("\n\n");
 
   const systemPrompt =
-    "You are M-00, Chief of Staff for Adarsh's personal Creator OS -- a 13-employee AI newsroom " +
-    "for his Instagram content. You manage the team; you don't write reels yourself. Talk to him " +
-    "plainly, Hinglish is fine, keep replies short.\n\n" +
+    `You are M-00, Chief of Staff for ${name}'s private Creator workspace -- a 13-employee AI newsroom ` +
+    "for their social content. You manage the team; you don't write reels yourself. Talk to them " +
+    "plainly, in the language they write in, keep replies short.\n\n" +
     "The current team:\n" +
     employeesBlock +
     "\n\nWhen he gives clear feedback on a named employee or desk (\"Hook Writer is too soft\", " +
@@ -146,7 +133,7 @@ Deno.serve(async (req) => {
 
   const { data: managerMsg, error: insertManagerErr } = await supabase
     .from("manager_messages")
-    .insert({ role: "manager", content: replyText || "(proposed a change below)" })
+    .insert({ tenant_id: tid, role: "manager", content: replyText || "(proposed a change below)" })
     .select("id")
     .single();
   if (insertManagerErr) return json(req, { error: insertManagerErr.message }, 500);
@@ -163,6 +150,7 @@ Deno.serve(async (req) => {
     const { data: fullEmployee } = await supabase
       .from("employees")
       .select("id")
+      .eq("tenant_id", tid)
       .eq("code", employee_code)
       .single();
     if (!fullEmployee) continue;
@@ -173,6 +161,7 @@ Deno.serve(async (req) => {
     const { data: proposal, error: proposalErr } = await supabase
       .from("manager_proposals")
       .insert({
+        tenant_id: tid,
         message_id: managerMsg.id,
         employee_id: fullEmployee.id,
         field,

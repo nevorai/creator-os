@@ -78,8 +78,6 @@ export type AppSettingsRow = {
   instagram_connected: boolean
   anthropic_key_set: boolean
   gemini_key_set: boolean
-  anthropic_api_key: string | null
-  gemini_api_key: string | null
   updated_at: string
 }
 

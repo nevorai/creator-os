@@ -2,52 +2,37 @@
 // Watch + recent headlines from the News Desk, plus Brand Brain pillars, and
 // asks Claude to turn raw signal into a short ranked list of reel topics.
 // Saved to `ideas` so they persist instead of being re-derived every visit.
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeadersFor, json } from "../_shared/cors.ts";
-import { ownerOnly } from "../_shared/owner.ts";
-
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+import { aiKey, guard, spend } from "../_shared/tenant.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeadersFor(req) });
 
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const asCaller = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    db: { schema: "creator_os" },
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: userData, error: authError } = await asCaller.auth.getUser();
-  if (authError || !userData?.user) {
-    return json(req, { error: "Not signed in." }, 401);
-  }
-  // Signed in is not enough in the shared Nevorai OS project: only a Creator OS owner gets past here.
-  const notOwner = await ownerOnly(req);
-  if (notOwner) return notOwner;
+  const g = await guard(req, "write");
+  if (g instanceof Response) return g;
+  const supabase = g.db;
+  const tid = g.tenantId;
 
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { db: { schema: "creator_os" } });
-
-  const { data: settings } = await supabase
-    .from("app_settings")
-    .select("anthropic_api_key")
-    .eq("id", 1)
-    .single();
-  const apiKey = settings?.anthropic_api_key;
-  if (!apiKey) {
-    return json(req, { error: "No Anthropic key saved. Add one in Settings first." }, 400);
-  }
+  const k = await aiKey(supabase, tid);
+  if (!k) return json(req, { error: "No AI key is set up yet. Add one in Settings, or ask Nevorai." }, 400);
+  const apiKey = k.key;
+  const capped = await spend(req, g, k);
+  if (capped) return capped;
 
   const { data: employee } = await supabase
     .from("employees")
     .select("prompt, model")
+    .eq("tenant_id", tid)
     .eq("code", "C-01")
     .maybeSingle();
 
-  const { data: brand } = await supabase.from("brand_brain").select("pillars").eq("id", 1).single();
+  const { data: brand } = await supabase.from("brand_brain").select("pillars").eq("tenant_id", tid).maybeSingle();
+  const { data: who } = await supabase.from("tenant_profile").select("display_name").eq("tenant_id", tid).maybeSingle();
 
   const { data: outliers } = await supabase
     .from("watchlist_posts")
     .select("caption, views, outlier_ratio, watchlist_accounts(handle, wing)")
+    .eq("tenant_id", tid)
     .eq("is_outlier", true)
     .order("outlier_ratio", { ascending: false })
     .limit(10);
@@ -55,6 +40,7 @@ Deno.serve(async (req) => {
   const { data: news } = await supabase
     .from("news_stories")
     .select("title, url")
+    .eq("tenant_id", tid)
     .order("fetched_at", { ascending: false })
     .limit(15);
 
@@ -82,8 +68,8 @@ Deno.serve(async (req) => {
     (news ?? []).map((n) => `- ${n.title} (${n.url})`).join("\n") || "(none)";
 
   const systemPrompt =
-    "You are the Topic Planner employee (C-01) inside Adarsh's personal Creator OS.\n\n" +
-    `His pillars: ${(brand?.pillars ?? []).join(", ")}\n\n` +
+    "You are the Topic Planner employee (C-01) inside a private Creator workspace.\n\n" +
+    `Their pillars: ${(brand?.pillars ?? []).join(", ")}\n\n` +
     (employee?.prompt ? `Instructions: ${employee.prompt}\n\n` : "") +
     "Output STRICT JSON only — an array of up to 5 objects, each shaped exactly like: " +
     '{"topic": "...", "pillar": "...", "why_now": "...", "confidence": "high"|"medium"|"low", "source": "..."}. ' +
@@ -92,7 +78,7 @@ Deno.serve(async (req) => {
   const userPrompt =
     `Outlier posts from watched accounts (recent):\n${outlierBlock}\n\n` +
     `Recent headlines:\n${newsBlock}\n\n` +
-    "Turn this into up to 5 ranked reel topic ideas for Adarsh's own page.";
+    `Turn this into up to 5 ranked reel topic ideas for ${who?.display_name ?? "this creator"}'s own page.`;
 
   const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -143,7 +129,7 @@ Deno.serve(async (req) => {
     return json(req, { error: "Model returned no usable ideas. Try again." }, 502);
   }
 
-  const { data: inserted, error: insertErr } = await supabase.from("ideas").insert(rows).select();
+  const { data: inserted, error: insertErr } = await supabase.from("ideas").insert(rows.map((r) => ({ ...r, tenant_id: tid }))).select();
   if (insertErr) return json(req, { error: insertErr.message }, 500);
 
   return json(req, { ideas: inserted });

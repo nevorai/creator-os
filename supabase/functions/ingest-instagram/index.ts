@@ -5,18 +5,8 @@
 // Needs the APIFY_API_TOKEN Edge Function secret — set by Adarsh himself,
 // never by Claude (see README for the exact command). Until it's set this
 // function returns a clear 400 instead of failing silently.
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeadersFor, json } from "../_shared/cors.ts";
-import { ownerOnly } from "../_shared/owner.ts";
-
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-
-// Targets the creator_os schema now that this project lives inside the
-// shared Nevorai Tools project — this was missing before the move and would
-// have silently written into "public" instead.
-const supabase = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
-  db: { schema: "creator_os" },
-});
+import { guard } from "../_shared/tenant.ts";
 
 const APIFY_TOKEN = Deno.env.get("APIFY_API_TOKEN");
 const APIFY_ACTOR = "apify~instagram-scraper";
@@ -30,20 +20,11 @@ type Body = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeadersFor(req) });
 
-  // Require a real signed-in user — this writes rows and spends Apify credits,
-  // so the anon key alone must not be enough to call it.
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const asCaller = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    db: { schema: "creator_os" },
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: userData, error: authError } = await asCaller.auth.getUser();
-  if (authError || !userData?.user) {
-    return json(req, { error: "Not signed in." }, 401);
-  }
-  // Signed in is not enough in the shared Nevorai OS project: only a Creator OS owner gets past here.
-  const notOwner = await ownerOnly(req);
-  if (notOwner) return notOwner;
+  // Writes rows and spends Apify credits: a member who may write, in the workspace they name.
+  const g = await guard(req, "write");
+  if (g instanceof Response) return g;
+  const supabase = g.db;
+  const tid = g.tenantId;
 
   if (!APIFY_TOKEN) {
     return json(req, { error: "APIFY_API_TOKEN is not set. See README for how to add it." }, 400);
@@ -53,8 +34,16 @@ Deno.serve(async (req) => {
   if (!body.url) {
     return json(req, { error: "url is required" }, 400);
   }
+  if (!/^https:\/\/(www\.)?instagram\.com\/(reel|reels|p|tv)\/[A-Za-z0-9_-]+/.test(body.url)) {
+    return json(req, { error: "Paste an Instagram reel or post link." }, 400);
+  }
   if (body.kind === "competitor" && !body.account_id) {
     return json(req, { error: "account_id is required for kind=competitor" }, 400);
+  }
+
+  if (body.kind === "competitor") {
+    const { data: acct } = await supabase.from("watchlist_accounts").select("id").eq("id", body.account_id!).eq("tenant_id", tid).maybeSingle();
+    if (!acct) return json(req, { error: "That account is not on your Watchlist." }, 403);
   }
 
   const runRes = await fetch(
@@ -84,6 +73,7 @@ Deno.serve(async (req) => {
 
   if (body.kind === "own") {
     const { error } = await supabase.from("reels").insert({
+      tenant_id: tid,
       posted_at,
       transcript: caption ?? "",
       caption,
@@ -98,6 +88,7 @@ Deno.serve(async (req) => {
   } else {
     const { error } = await supabase.from("watchlist_posts").upsert(
       {
+        tenant_id: tid,
         account_id: body.account_id,
         post_url: body.url,
         posted_at,
@@ -106,7 +97,7 @@ Deno.serve(async (req) => {
         likes,
         comments,
       },
-      { onConflict: "post_url" },
+      { onConflict: "tenant_id,post_url" },
     );
     if (error) return json(req, { error: error.message }, 500);
   }
