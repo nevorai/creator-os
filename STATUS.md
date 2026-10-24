@@ -12,6 +12,7 @@ as a plug-in by signed pass. SocialWire stays separate (audience and front door)
   positioning, price ladder, cheap test). Raw review data in `replica/` (feedback tables committed, CSVs not).
 - **Phase B done:** `docs/nevorai-creator-plan.md` (features, niche model, onboarding, hub, tenant model,
   Kaizen steps, build order D1..D7 with done-criteria and his actions).
+- **D1 done, held back (2026-10-24):** 0014_niches.sql (+ checks/0014_attack.sql), tenant-admin `onboard` (niches) and `watch`, new sidebar/phone shell (Layout), light/dark tokens, 3-step onboarding. Gates: 0013 + 0014 attack all PASS on a scratch Postgres, typecheck, deno test 6/6, phone-check 375 on all pages + More sheet, drag-smoothness deviation 0. NOT pushed: the live app needs 0013 + 0014 SQL run first (one paste), then push, then deploy `tenant-admin`, `kaizen`, `brand-trainer`. DEV harness: `/?dev=1` (dev builds only).
 - **Phase C done:** `src/tokens.css` (the one tokens file, light and dark), `public/brand/mark-{a,b,c}.svg`,
   `docs/design/preview.html` (dashboard, onboarding, Orbit, phones), `docs/design-system.md`. Not yet wired
   into the app: D1 imports tokens.css and sets data-theme before first paint.

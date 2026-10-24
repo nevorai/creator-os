@@ -1,61 +1,61 @@
+@import "./tokens.css";
 @import "tailwindcss";
 
-@theme {
-  --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
-  --font-display: "Lexend", "Inter", system-ui, sans-serif;
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
 
-  /* Brand accent — violet, richer than stock Tailwind purple */
-  --color-accent-50: #f5f1ff;
-  --color-accent-100: #ede5ff;
-  --color-accent-200: #d9caff;
-  --color-accent-300: #bda1ff;
-  --color-accent-400: #9c6dff;
-  --color-accent-500: #8b3ffb;
-  --color-accent-600: #7a24ef;
-  --color-accent-700: #6716cf;
-  --color-accent-800: #5514a8;
-  --color-accent-900: #451286;
-  --color-accent-950: #2b0759;
+  /* Every colour comes from tokens.css, so light, dark and system all work. */
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-2);
+  --color-border: var(--border-strong);
+  --color-border-subtle: var(--border);
+  /* text-white/xx and bg-white/xx across the pages now mean "text colour at xx%" in either theme. */
+  --color-white: var(--text);
+  --color-on-brand: var(--on-brand);
 
-  /* Near-black surfaces for a deliberately dark, premium dashboard feel */
-  --color-canvas: #08070b;
-  --color-surface: #0f0d15;
-  --color-surface-raised: #161320;
-  --color-border-subtle: #221f2e;
-  --color-border: #2c2838;
+  /* Brand accent: magenta to orange (the old violet scale keeps its names so no page changes). */
+  --color-accent-50: #fff0f7;
+  --color-accent-100: #ffe0ef;
+  --color-accent-200: #ffc2de;
+  --color-accent-300: #ff94c4;
+  --color-accent-400: #ff5fa5;
+  --color-accent-500: #ff2d8a;
+  --color-accent-600: #e6177a;
+  --color-accent-700: #c00f64;
+  --color-accent-800: #970d50;
+  --color-accent-900: #6f0b3d;
+  --color-accent-950: #3f0623;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03);
-  --shadow-glow: 0 0 0 1px rgba(139, 63, 251, 0.4), 0 8px 24px -8px rgba(139, 63, 251, 0.5);
-}
-
-:root {
-  color-scheme: dark;
+  --shadow-card: var(--shadow-card);
+  --shadow-glow: var(--shadow-glow);
 }
 
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background: var(--color-canvas);
-  color: #f4f2f8;
+  background: var(--canvas);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: var(--color-accent-500);
+  background: var(--brand-magenta);
   color: white;
 }
 
 /* Thin, unobtrusive scrollbars to match the dark premium surface */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
+  scrollbar-color: var(--border-strong) transparent;
 }
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 *::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--border-strong);
   border-radius: 8px;
 }
 

@@ -86,7 +86,7 @@ export function BoardPage() {
                             move.mutate({ id: s.id, production_status: STAGES[idx + 1].key })
                           }
                           disabled={move.isPending}
-                          className="rounded-md bg-accent-500 px-1.5 py-0.5 text-white hover:bg-accent-400 disabled:opacity-50"
+                          className="rounded-md bg-accent-500 px-1.5 py-0.5 text-on-brand hover:bg-accent-400 disabled:opacity-50"
                         >
                           next →
                         </button>

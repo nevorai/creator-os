@@ -1,5 +1,6 @@
 // Workspace admin for one creator (tenant). Everything a browser may NOT write directly goes through here:
-//   onboard       owner   first-time profile (name, niche, handle, language)
+//   onboard       owner   first-time profile (name, niches, handle, language); does not finish onboarding
+//   watch         owner   accounts + feeds Orbit starts with; finishes onboarding
 //   save_key      owner   the creator's own AI key (optional; otherwise Nevorai's key + monthly credits)
 //   remove_key    owner
 //   add_member    owner   invite a teammate by email as editor or viewer (seat limit enforced by the database)
@@ -41,14 +42,61 @@ Deno.serve(async (req) => {
       const display_name = str(body.display_name, 120);
       if (!display_name) return json(req, { error: "Tell us your name." }, 400);
       const language = ["english", "hindi", "hinglish"].includes(String(body.language)) ? String(body.language) : "hinglish";
+      // niches: [{ key } | { custom }, one marked primary]. Replaces the creator's picks; the plan cap is enforced by the database.
+      const picks = Array.isArray(body.niches) ? (body.niches as Record<string, unknown>[]).slice(0, 25) : [];
+      const rows: { tenant_id: string; niche_key: string | null; custom_name: string | null; is_primary: boolean }[] = [];
+      const seen = new Set<string>();
+      for (const n of picks) {
+        const key = typeof n?.key === "string" ? n.key : "";
+        const custom = str(n?.custom, 60);
+        const id = key ? `k:${key}` : `c:${custom.toLowerCase()}`;
+        if ((!key && custom.length < 2) || seen.has(id)) continue;
+        if (key && !/^[a-z][a-z0-9-]{1,40}$/.test(key)) continue;
+        seen.add(id);
+        rows.push({ tenant_id: tenantId, niche_key: key || null, custom_name: key ? null : custom, is_primary: n?.primary === true });
+      }
+      if (rows.length && !rows.some((r) => r.is_primary)) rows[0].is_primary = true;
+      let names = str(body.niche, 200);
+      if (rows.length) {
+        const { data: cat } = await db.from("niches").select("key, name").in("key", rows.filter((r) => r.niche_key).map((r) => r.niche_key!));
+        const label = new Map((cat ?? []).map((c: { key: string; name: string }) => [c.key, c.name]));
+        if (rows.some((r) => r.niche_key && !label.has(r.niche_key))) return json(req, { error: "Unknown niche." }, 400);
+        await db.from("tenant_niches").delete().eq("tenant_id", tenantId);
+        const { error: ne } = await db.from("tenant_niches").insert(rows);
+        if (ne) {
+          if (/Plan limit/i.test(ne.message)) return json(req, { error: "Your plan allows fewer niches. Remove one or upgrade." }, 402);
+          return json(req, { error: "Could not save your niches." }, 500);
+        }
+        names = rows.map((r) => (r.niche_key ? label.get(r.niche_key) : r.custom_name)).join(", ").slice(0, 200);
+      }
       const { error } = await db.from("tenant_profile").upsert({
-        tenant_id: tenantId, display_name, niche: str(body.niche, 200) || null,
+        tenant_id: tenantId, display_name, niche: names || null,
         handle: str(body.handle, 60).replace(/^@/, "") || null, language, about: str(body.about, 1000) || null,
-        onboarded_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       });
       if (error) return json(req, { error: error.message }, 500);
       await db.from("tenants").update({ name: display_name }).eq("id", tenantId);
       return json(req, { ok: true });
+    }
+
+    case "watch": {
+      // Last onboarding step: the accounts and feeds Orbit starts watching. Skipping sends empty lists.
+      const handles = (Array.isArray(body.handles) ? body.handles : []).map((h) => str(h, 60).replace(/^@/, "").toLowerCase())
+        .filter((h) => /^[a-z0-9._]{1,30}$/.test(h)).slice(0, 50);
+      const sources = (Array.isArray(body.sources) ? body.sources : []).map((s) => ({
+        name: str((s as Record<string, unknown>)?.name, 80), url: str((s as Record<string, unknown>)?.url, 500),
+      })).filter((s) => s.name && /^https?:\/\//i.test(s.url)).slice(0, 30);
+      if (handles.length) {
+        const { error } = await db.from("watchlist_accounts").upsert(
+          handles.map((handle) => ({ tenant_id: tenantId, handle })), { onConflict: "tenant_id,handle", ignoreDuplicates: true });
+        if (error) return json(req, { error: /Plan limit/i.test(error.message) ? "That is more accounts than your plan watches. Pick fewer." : "Could not save the accounts." }, /Plan limit/i.test(error.message) ? 402 : 500);
+      }
+      if (sources.length) {
+        const { error } = await db.from("sources").insert(sources.map((s) => ({ tenant_id: tenantId, ...s })));
+        if (error) return json(req, { error: /Plan limit/i.test(error.message) ? "That is more sources than your plan reads. Pick fewer." : "Could not save the sources." }, /Plan limit/i.test(error.message) ? 402 : 500);
+      }
+      await db.from("tenant_profile").update({ onboarded_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("tenant_id", tenantId);
+      return json(req, { ok: true, handles: handles.length, sources: sources.length });
     }
 
     case "save_key": {

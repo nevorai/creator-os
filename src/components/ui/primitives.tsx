@@ -43,7 +43,7 @@ export function PageHeader({
 
 const BUTTON_VARIANTS = {
   primary:
-    'bg-accent-500 text-white shadow-[0_1px_0_0_rgba(255,255,255,0.18)_inset] hover:bg-accent-400 disabled:opacity-40 disabled:hover:bg-accent-500',
+    'bg-gradient-to-br from-accent-500 to-[#ff7a1a] text-on-brand shadow-[0_1px_0_0_rgba(255,255,255,0.18)_inset] hover:brightness-110 disabled:opacity-40 disabled:hover:brightness-100',
   secondary:
     'border border-border bg-surface-raised text-white/80 hover:border-white/20 hover:text-white disabled:opacity-40',
   ghost: 'text-white/60 hover:bg-white/5 hover:text-white disabled:opacity-40',
@@ -58,7 +58,7 @@ export function Button({
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof BUTTON_VARIANTS }) {
   return (
     <button
-      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-150 ${BUTTON_VARIANTS[variant]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-[14px] px-4 py-2.5 text-sm font-medium transition-colors duration-150 ${BUTTON_VARIANTS[variant]} ${className}`}
       {...props}
     />
   )
@@ -100,7 +100,7 @@ export function EmptyState({ title, description }: { title: string; description?
 }
 
 const fieldClass =
-  'w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none transition-colors focus:border-accent-500/60 focus:ring-2 focus:ring-accent-500/20'
+  'w-full rounded-[14px] border border-border bg-surface-raised px-3.5 py-2.5 text-base text-white md:text-sm placeholder:text-white/30 outline-none transition-colors focus:border-accent-500/60 focus:ring-2 focus:ring-accent-500/20'
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${fieldClass} ${props.className ?? ''}`} />

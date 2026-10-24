@@ -36,7 +36,7 @@ type Ctx = {
   refresh: () => void
 }
 
-const TenantContext = createContext<Ctx>({
+export const TenantContext = createContext<Ctx>({
   loading: true, tenants: [], tenant: null, profile: null, role: null, canWrite: false, isOwner: false,
   select: () => {}, refresh: () => {},
 })

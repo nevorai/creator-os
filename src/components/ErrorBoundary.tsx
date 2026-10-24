@@ -26,7 +26,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 this.setState({ error: null })
                 window.location.hash = '#/'
               }}
-              className="mt-4 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-400"
+              className="mt-4 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-medium text-on-brand hover:bg-red-400"
             >
               Back to Today
             </button>

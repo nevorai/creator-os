@@ -4,7 +4,7 @@ import { supabase, supabaseConfigured } from './supabase'
 
 type AuthState = { session: Session | null; loading: boolean; needsPassword: boolean; passwordSet: () => void }
 
-const AuthContext = createContext<AuthState>({ session: null, loading: true, needsPassword: false, passwordSet: () => {} })
+export const AuthContext = createContext<AuthState>({ session: null, loading: true, needsPassword: false, passwordSet: () => {} })
 
 export function useAuth() {
   return useContext(AuthContext)

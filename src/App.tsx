@@ -24,10 +24,13 @@ import { SourcesPage } from './pages/Sources'
 import { StudioPage } from './pages/Studio'
 import { TodayPage } from './pages/Today'
 import { WatchlistPage } from './pages/Watchlist'
+import { DevShell } from './dev/DevShell'
 
 const queryClient = new QueryClient()
 
 export default function App() {
+  // Dev-only harness for the phone, sidebar and desktop gates (nobody can sign in locally). Not in production builds.
+  if (import.meta.env.DEV && new URLSearchParams(location.search).has('dev')) return <DevShell />
   return (
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
@@ -61,6 +64,13 @@ function Gate() {
 
   return (
     <HashRouter>
+      <AppRoutes needsOnboarding={needsOnboarding} />
+    </HashRouter>
+  )
+}
+
+export function AppRoutes({ needsOnboarding }: { needsOnboarding: boolean }) {
+  return (
         <Routes>
           <Route element={<Layout />}>
             <Route index element={needsOnboarding ? <OnboardingPage /> : <TodayPage />} />
@@ -82,6 +92,5 @@ function Gate() {
             <Route path="*" element={<NotFoundPage />} />
           </Route>
       </Routes>
-    </HashRouter>
   )
 }
